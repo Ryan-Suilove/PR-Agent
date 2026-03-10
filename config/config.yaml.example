@@ -1,34 +1,56 @@
 # =====================================================
 # PR审查系统配置文件示例
 # =====================================================
-# 
+#
 # 使用说明：
 # 1. 复制本文件为 config.yaml
 # 2. 修改下面的配置项为实际值
 # 3. 将 config.yaml 加入 .gitignore（避免提交敏感信息）
-# 
+#
 
 # ==================== LLM配置 ====================
 llm:
+  # LLM模式: local (本地Ollama) 或 api (OpenRouter API)
+  mode: "local"
+
+  # === 本地模式配置 (mode: local) ===
   # 模型名称（从Ollama拉取的模型）
   model: "qwen2.5-coder:32b"
-  
+
   # Ollama服务地址
   base_url: "http://localhost:11434"
-  
+
+  # === API模式配置 (mode: api) ===
+  # OpenRouter API配置 (当mode为api时使用)
+  # OpenRouter API密钥 (从 https://openrouter.ai/keys 获取)
+  api_key: "sk-or-v1-xxxxxxxxxxxxxxxx"
+
+  # API基础URL (OpenRouter)
+  api_base_url: "https://openrouter.ai/api/v1"
+
+  # API模型名称 (OpenRouter支持的模型)
+  # 常用模型:
+  #   - anthropic/claude-3.5-sonnet (推荐)
+  #   - anthropic/claude-3-opus
+  #   - openai/gpt-4o
+  #   - openai/gpt-4-turbo
+  #   - google/gemini-pro-1.5
+  #   - meta-llama/llama-3.1-70b-instruct
+  api_model: "anthropic/claude-3.5-sonnet"
+
   # 温度参数（0-1，越高越随机）
   temperature: 0.3
-  
+
   # 是否显示LLM原始响应（调试用）
   debug_show_response: false
-  
+
   # LLM调用重试配置
   retry:
     code_analyzer: 3      # 代码分析智能体最大重试次数
     git_review: 2         # Git规范检查智能体最大重试次数
     context_collector: 2  # 上下文收集智能体最大重试次数
     decision: 2           # 决策智能体最大重试次数
-    
+
   # LLM调用超时配置（秒）
   timeout:
     code_analyzer: 3600   # 代码分析超时时间（1小时）
@@ -42,11 +64,11 @@ git_repo:
   # Windows示例: "D:\\Projects\\MyRepo"
   # Linux/Mac示例: "/home/user/projects/MyRepo"
   repo_path: "/path/to/your/repo"
-  
+
   # 基础分支名称
   base_branch: "main"
-  
-  # 仓库显示名称（用于飞书消息显示）
+
+  # 仓库显示名称（用于报告显示）
   repo_name: "MyProject"
 
 # ==================== PR审查配置 ====================
@@ -55,45 +77,80 @@ pr_review:
   deep_analysis:
     max_iterations: 6  # 最大迭代次数（建议4-8次）
 
-# ==================== 飞书机器人配置 ====================
+  # PR拆分配置
+  splitting:
+    # diff大小阈值（字节），超过此值触发拆分
+    diff_size_threshold: 50000
+    # 目标拆分大小
+    target_diff_size: 50000
+    # 是否启用依赖分析
+    enable_dependency_analysis: true
+
+  # Git检查配置
+  git_check:
+    # 超过此diff大小时跳过LLM规范检查
+    skip_llm_diff_size: 50000
+
+# ==================== 飞书机器人配置（可选） ====================
+# 注意：使用CLI模式时，以下配置可以留空或忽略
 feishu_bot:
   # 飞书应用凭证（从飞书开放平台获取：https://open.feishu.cn/）
   app_id: "cli_xxxxxxxxxxxx"
   app_secret: "xxxxxxxxxxxxxxxxxxxxxxxx"
-  
+
   # 飞书事件订阅配置
   verification_token: "xxxxxxxxxxxxxxxxxxxxxxxx"
   encrypt_key: ""  # 可选，如果启用了消息加密则填写
-  
+
   # 管理员飞书用户ID列表（open_id格式，如：ou_xxx）
   # 获取方式：让用户在飞书中给机器人发消息，查看日志中的open_id
   admins:
     - "ou_xxxxxxxxxxxxxxxxxxxxxxxx"
-  
+
   # 并发控制配置
   concurrency:
     # 是否启用并发控制
     enabled: true
-    
+
     # 最大并发处理数（同时处理的PR审查任务数）
     max_workers: 2
-    
+
     # 任务队列最大长度（等待处理的任务数）
     max_queue_size: 5
 
+# ==================== CLI模式配置（可选） ====================
+cli:
+  # watch模式的轮询间隔（秒）
+  watch_interval: 30
+
+  # 是否在审查通过后自动显示详细报告
+  show_detail_on_pass: true
+
+  # 报告保存目录
+  report_dir: "logs/review_reports"
+
 # ==================== 配置说明 ====================
-# 
-# 1. 飞书机器人权限需要（在开放平台配置）：
+#
+# 1. LLM模式选择：
+#    - local: 使用本地Ollama服务，适合有GPU的机器
+#    - api: 使用OpenRouter API，适合本地算力不足的情况
+#
+# 2. API模式使用：
+#    - 注册OpenRouter账号: https://openrouter.ai/
+#    - 获取API密钥: https://openrouter.ai/keys
+#    - 选择合适的模型，注意查看价格
+#
+# 3. CLI模式使用：
+#    - 审查分支: python main_cli.py review <源分支> [目标分支]
+#    - 交互模式: python main_cli.py interactive
+#    - Git钩子: python main_cli.py hook
+#    - 监听模式: python main_cli.py watch
+#
+# 4. 飞书机器人权限需要（在开放平台配置）：
 #    - 接收消息（im:message）
 #    - 读取用户信息（contact:user.id）
 #    - 以应用身份发消息（im:message:send_as_bot）
-# 
-# 2. 仓库路径必须是绝对路径
-# 
-# 3. 管理员ID必须是飞书open_id格式（ou_开头）
-# 
-# 4. retry 和 timeout 配置用于控制 LLM 调用的重试和超时行为
-#    - retry: 失败后重试次数，避免临时网络问题导致失败
-#    - timeout: 单次请求的超时时间（秒），大型PR分析可能需要更长时间
-# 
-# 5. 建议将 config.yaml 加入 .gitignore，避免敏感信息泄露
+#
+# 5. 仓库路径必须是绝对路径
+#
+# 6. 建议将 config.yaml 加入 .gitignore，避免敏感信息泄露
